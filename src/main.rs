@@ -4,9 +4,11 @@ use std::fs::File;
 use std::io::{prelude::*, BufWriter};
 use std::path::Path;
 
+mod hit;
 mod ray;
 mod vec3;
 
+use hit::{Hittable, Sphere};
 use ray::Ray;
 use vec3::Vec3;
 
@@ -14,30 +16,19 @@ const ASPECT_RATIO: f64 = 16.0 / 9.0;
 const IMAGE_WIDTH: u32 = 400;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as u32;
 
-fn hit_sphere(center: Vec3, radius: f64, ray: Ray) -> f64 {
-    let oc = ray.origin - center;
-    let a = ray.direction.mag_squared();
-    let half_b = oc.dot(ray.direction);
-    let c = oc.mag_squared() - radius * radius;
-    let discriminant = half_b * half_b - a * c;
-
-    if discriminant < 0.0 {
-        -1.0
-    } else {
-        (-half_b - discriminant.sqrt()) / a
-    }
-}
-
 fn ray_color(ray: Ray) -> Vec3 {
-    let t = hit_sphere(Vec3(0.0, 0.0, -1.0), 0.5, ray);
+    let sphere = Sphere {
+        center: Vec3(0.0, 0.0, -1.0),
+        radius: 0.5,
+    };
 
-    if t > 0.0 {
-        let normal = (ray.at(t) - Vec3(0.0, 0.0, -1.0)).normalized();
-        return 0.5 * (normal + 1.0);
+    match sphere.hit(ray, 0.0, 100.0) {
+        Some(hit) => 0.5 * (hit.normal + 1.0),
+        None => {
+            let t = 0.5 * (ray.direction.normalized().1 + 1.0);
+            (1.0 - t) * Vec3::ONE + t * Vec3(0.5, 0.7, 1.0)
+        }
     }
-
-    let t = 0.5 * (ray.direction.normalized().1 + 1.0);
-    (1.0 - t) * Vec3::ONE + t * Vec3(0.5, 0.7, 1.0)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
