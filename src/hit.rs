@@ -1,5 +1,6 @@
 use crate::ray::Ray;
 use crate::vec3::Vec3;
+use std::ops::Range;
 
 pub struct Hit {
     pub point: Vec3,
@@ -25,7 +26,7 @@ impl Hit {
 }
 
 pub trait Hittable {
-    fn hit(&self, ray: Ray, t_min: f64, t_max: f64) -> Option<Hit>;
+    fn hit(&self, ray: Ray, t_range: Range<f64>) -> Option<Hit>;
 }
 
 pub struct Sphere {
@@ -34,7 +35,7 @@ pub struct Sphere {
 }
 
 impl Hittable for Sphere {
-    fn hit(&self, ray: Ray, t_min: f64, t_max: f64) -> Option<Hit> {
+    fn hit(&self, ray: Ray, t_range: Range<f64>) -> Option<Hit> {
         let oc = ray.origin - self.center;
         let a = ray.direction.mag_squared();
         let half_b = oc.dot(ray.direction);
@@ -45,7 +46,7 @@ impl Hittable for Sphere {
             let root = discriminant.sqrt();
 
             let t = (-half_b - root) / a;
-            if t > t_min && t < t_max {
+            if t_range.contains(&t) {
                 let point = ray.at(t);
                 return Some(Hit::new(
                     point,
@@ -56,7 +57,7 @@ impl Hittable for Sphere {
             }
 
             let t = (-half_b + root) / a;
-            if t > t_min && t < t_max {
+            if t_range.contains(&t) {
                 let point = ray.at(t);
                 return Some(Hit::new(
                     point,

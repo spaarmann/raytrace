@@ -22,7 +22,7 @@ fn ray_color(ray: Ray) -> Vec3 {
         radius: 0.5,
     };
 
-    match sphere.hit(ray, 0.0, 100.0) {
+    match sphere.hit(ray, 0.0..100.0) {
         Some(hit) => 0.5 * (hit.normal + 1.0),
         None => {
             let t = 0.5 * (ray.direction.normalized().1 + 1.0);
