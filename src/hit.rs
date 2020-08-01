@@ -5,6 +5,23 @@ pub struct Hit {
     pub point: Vec3,
     pub normal: Vec3,
     pub t: f64,
+    pub front_face: bool,
+}
+
+impl Hit {
+    pub fn new(point: Vec3, outward_normal: Vec3, t: f64, ray_direction: Vec3) -> Self {
+        let front_face = ray_direction.dot(outward_normal) < 0.0;
+        Hit {
+            point,
+            normal: if front_face {
+                outward_normal
+            } else {
+                -outward_normal
+            },
+            t,
+            front_face,
+        }
+    }
 }
 
 pub trait Hittable {
@@ -30,21 +47,23 @@ impl Hittable for Sphere {
             let t = (-half_b - root) / a;
             if t > t_min && t < t_max {
                 let point = ray.at(t);
-                return Some(Hit {
+                return Some(Hit::new(
                     point,
-                    normal: (point - self.center) / self.radius,
+                    (point - self.center) / self.radius,
                     t,
-                });
+                    ray.direction,
+                ));
             }
 
             let t = (-half_b + root) / a;
             if t > t_min && t < t_max {
                 let point = ray.at(t);
-                return Some(Hit {
+                return Some(Hit::new(
                     point,
-                    normal: (point - self.center) / self.radius,
+                    (point - self.center) / self.radius,
                     t,
-                });
+                    ray.direction,
+                ));
             }
         }
 
