@@ -71,3 +71,22 @@ impl Hittable for Sphere {
         None
     }
 }
+
+pub struct HittableList<'a> {
+    pub hittables: Vec<&'a dyn Hittable>,
+}
+
+impl<'a> Hittable for HittableList<'a> {
+    fn hit(&self, ray: Ray, mut t_range: Range<f64>) -> Option<Hit> {
+        let mut current_hit = None;
+
+        for hittable in self.hittables.iter() {
+            if let Some(new_hit) = hittable.hit(ray, t_range.clone()) {
+                t_range.end = new_hit.t;
+                current_hit = Some(new_hit)
+            }
+        }
+
+        current_hit
+    }
+}

@@ -8,7 +8,7 @@ mod hit;
 mod ray;
 mod vec3;
 
-use hit::{Hittable, Sphere};
+use hit::{Hittable, HittableList, Sphere};
 use ray::Ray;
 use vec3::Vec3;
 
@@ -16,13 +16,8 @@ const ASPECT_RATIO: f64 = 16.0 / 9.0;
 const IMAGE_WIDTH: u32 = 400;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as u32;
 
-fn ray_color(ray: Ray) -> Vec3 {
-    let sphere = Sphere {
-        center: Vec3(0.0, 0.0, -1.0),
-        radius: 0.5,
-    };
-
-    match sphere.hit(ray, 0.0..100.0) {
+fn ray_color(ray: Ray, scene: &dyn Hittable) -> Vec3 {
+    match scene.hit(ray, 0.0..100.0) {
         Some(hit) => 0.5 * (hit.normal + 1.0),
         None => {
             let t = 0.5 * (ray.direction.normalized().1 + 1.0);
@@ -54,6 +49,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     let lower_left_corner =
         origin - horizontal / 2.0 - vertical / 2.0 - Vec3(0.0, 0.0, focal_length);
 
+    // Scene
+    let s1 = Sphere {
+        center: Vec3(0.0, 0.0, -1.0),
+        radius: 0.5,
+    };
+    let s2 = Sphere {
+        center: Vec3(0.0, -100.5, -1.0),
+        radius: 100.0,
+    };
+    let scene = HittableList {
+        hittables: vec![&s1, &s2],
+    };
+
     for j in (0..IMAGE_HEIGHT).rev() {
         println!("Scanline {}/{}", IMAGE_HEIGHT - j, IMAGE_HEIGHT);
         for i in 0..IMAGE_WIDTH {
@@ -64,7 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 origin,
                 lower_left_corner + u * horizontal + v * vertical - origin,
             );
-            let pixel_color = ray_color(ray);
+            let pixel_color = ray_color(ray, &scene);
 
             write_color(&mut pixels, pixel_color);
         }
