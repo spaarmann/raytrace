@@ -1,13 +1,16 @@
+use rand::Rng;
 use std::env;
 use std::error::Error;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
 
+mod camera;
 mod hit;
 mod ray;
 mod vec3;
 
+use camera::Camera;
 use hit::{Hittable, HittableList, Sphere};
 use ray::Ray;
 use vec3::Vec3;
@@ -15,6 +18,7 @@ use vec3::Vec3;
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
 const IMAGE_WIDTH: u32 = 400;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as u32;
+const SAMPLES: u32 = 100;
 
 fn ray_color(ray: Ray, scene: &dyn Hittable) -> Vec3 {
     match scene.hit(ray, 0.0..100.0) {
@@ -38,16 +42,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut pixels = Vec::<u8>::with_capacity((IMAGE_WIDTH * IMAGE_HEIGHT * 4) as usize);
 
-    // Camera
-    let viewport_height = 2.0;
-    let viewport_width = ASPECT_RATIO * viewport_height;
-    let focal_length = 1.0;
+    let mut rng = rand::thread_rng();
 
-    let origin = Vec3::ZERO;
-    let horizontal = Vec3(viewport_width, 0.0, 0.0);
-    let vertical = Vec3(0.0, viewport_height, 0.0);
-    let lower_left_corner =
-        origin - horizontal / 2.0 - vertical / 2.0 - Vec3(0.0, 0.0, focal_length);
+    // Camera
+    let camera = Camera::new(ASPECT_RATIO, 2.0, 1.0, Vec3::ZERO);
 
     // Scene
     let s1 = Sphere {
@@ -65,16 +63,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     for j in (0..IMAGE_HEIGHT).rev() {
         println!("Scanline {}/{}", IMAGE_HEIGHT - j, IMAGE_HEIGHT);
         for i in 0..IMAGE_WIDTH {
-            let u = f64::from(i) / f64::from(IMAGE_WIDTH - 1);
-            let v = f64::from(j) / f64::from(IMAGE_HEIGHT - 1);
+            let mut pixel_color = Vec3::ZERO;
+            for _ in 0..SAMPLES {
+                let u = (f64::from(i) + rng.gen::<f64>()) / f64::from(IMAGE_WIDTH - 1);
+                let v = (f64::from(j) + rng.gen::<f64>()) / f64::from(IMAGE_HEIGHT - 1);
 
-            let ray = Ray::new(
-                origin,
-                lower_left_corner + u * horizontal + v * vertical - origin,
-            );
-            let pixel_color = ray_color(ray, &scene);
+                let ray = camera.get_ray(u, v);
+                pixel_color += ray_color(ray, &scene);
+            }
 
-            write_color(&mut pixels, pixel_color);
+            write_color(&mut pixels, pixel_color / (SAMPLES as f64));
         }
     }
 
