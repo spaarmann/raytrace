@@ -7,11 +7,13 @@ use std::path::Path;
 
 mod camera;
 mod hit;
+mod material;
 mod ray;
 mod vec3;
 
 use camera::Camera;
-use hit::{Hittable, HittableList, Sphere};
+use hit::{Hit, Hittable, HittableList, Sphere};
+use material::{Lambertian, Material};
 use ray::Ray;
 use vec3::Vec3;
 
@@ -27,10 +29,12 @@ fn ray_color(ray: Ray, scene: &dyn Hittable, depth: i32) -> Vec3 {
     }
 
     match scene.hit(ray, 0.000001..f64::INFINITY) {
-        Some(hit) => {
-            let target = hit.point + hit.normal + Vec3::random_unit_vector();
-            0.5 * ray_color(Ray::new(hit.point, target - hit.point), scene, depth - 1)
-        }
+        Some(hit) => hit
+            .material
+            .scatter(&ray, &hit)
+            .map_or(Vec3::ZERO, |(attenuation, scattered)| {
+                attenuation * ray_color(scattered, scene, depth - 1)
+            }),
         None => {
             // background
             let t = 0.5 * (ray.direction.normalized().1 + 1.0);
@@ -56,14 +60,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Camera
     let camera = Camera::new(ASPECT_RATIO, 2.0, 1.0, Vec3::ZERO);
 
+    let mat = Lambertian {
+        albedo: Vec3(0.5, 0.5, 0.6),
+    };
+
     // Scene
     let s1 = Sphere {
         center: Vec3(0.0, 0.0, -1.0),
         radius: 0.5,
+        material: &mat,
     };
     let s2 = Sphere {
         center: Vec3(0.0, -100.5, -1.0),
         radius: 100.0,
+        material: &mat,
     };
     let scene = HittableList {
         hittables: vec![&s1, &s2],

@@ -1,16 +1,24 @@
+use crate::Material;
 use crate::Ray;
 use crate::Vec3;
 use std::ops::Range;
 
-pub struct Hit {
+pub struct Hit<'a> {
     pub point: Vec3,
     pub normal: Vec3,
     pub t: f64,
     pub front_face: bool,
+    pub material: &'a dyn Material,
 }
 
-impl Hit {
-    pub fn new(point: Vec3, outward_normal: Vec3, t: f64, ray_direction: Vec3) -> Self {
+impl<'a> Hit<'a> {
+    pub fn new(
+        point: Vec3,
+        outward_normal: Vec3,
+        t: f64,
+        ray_direction: Vec3,
+        material: &'a dyn Material,
+    ) -> Self {
         let front_face = ray_direction.dot(outward_normal) < 0.0;
         Hit {
             point,
@@ -21,6 +29,7 @@ impl Hit {
             },
             t,
             front_face,
+            material,
         }
     }
 }
@@ -29,12 +38,13 @@ pub trait Hittable {
     fn hit(&self, ray: Ray, t_range: Range<f64>) -> Option<Hit>;
 }
 
-pub struct Sphere {
+pub struct Sphere<'a> {
     pub center: Vec3,
     pub radius: f64,
+    pub material: &'a dyn Material,
 }
 
-impl Hittable for Sphere {
+impl<'a> Hittable for Sphere<'a> {
     fn hit(&self, ray: Ray, t_range: Range<f64>) -> Option<Hit> {
         let oc = ray.origin - self.center;
         let a = ray.direction.mag_squared();
@@ -53,6 +63,7 @@ impl Hittable for Sphere {
                     (point - self.center) / self.radius,
                     t,
                     ray.direction,
+                    self.material,
                 ));
             }
 
@@ -64,6 +75,7 @@ impl Hittable for Sphere {
                     (point - self.center) / self.radius,
                     t,
                     ray.direction,
+                    self.material,
                 ));
             }
         }
