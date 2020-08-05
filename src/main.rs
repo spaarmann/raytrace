@@ -19,11 +19,20 @@ const ASPECT_RATIO: f64 = 16.0 / 9.0;
 const IMAGE_WIDTH: u32 = 400;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as u32;
 const SAMPLES: u32 = 100;
+const MAX_DEPTH: i32 = 50;
 
-fn ray_color(ray: Ray, scene: &dyn Hittable) -> Vec3 {
-    match scene.hit(ray, 0.0..100.0) {
-        Some(hit) => 0.5 * (hit.normal + 1.0),
+fn ray_color(ray: Ray, scene: &dyn Hittable, depth: i32) -> Vec3 {
+    if depth <= 0 {
+        return Vec3::ZERO;
+    }
+
+    match scene.hit(ray, 0.000001..f64::INFINITY) {
+        Some(hit) => {
+            let target = hit.point + hit.normal + Vec3::random_unit_vector();
+            0.5 * ray_color(Ray::new(hit.point, target - hit.point), scene, depth - 1)
+        }
         None => {
+            // background
             let t = 0.5 * (ray.direction.normalized().1 + 1.0);
             (1.0 - t) * Vec3::ONE + t * Vec3(0.5, 0.7, 1.0)
         }
@@ -69,7 +78,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 let v = (f64::from(j) + rng.gen::<f64>()) / f64::from(IMAGE_HEIGHT - 1);
 
                 let ray = camera.get_ray(u, v);
-                pixel_color += ray_color(ray, &scene);
+                pixel_color += ray_color(ray, &scene, MAX_DEPTH);
             }
 
             write_color(&mut pixels, pixel_color / (SAMPLES as f64));
@@ -83,8 +92,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn write_color(pixels: &mut Vec<u8>, color: Vec3) {
-    let color = 255.999 * color; // Map from [0-1] to [0-255]
-    pixels.push(color.0 as u8);
-    pixels.push(color.1 as u8);
-    pixels.push(color.2 as u8);
+    // This would be the place to do gamma correction,
+    // but currently the gamma factor is encoded as PNG metadata instead.
+    pixels.push((256.0 * clamp(color.0, 0.0, 0.999)) as u8);
+    pixels.push((256.0 * clamp(color.1, 0.0, 0.999)) as u8);
+    pixels.push((256.0 * clamp(color.2, 0.0, 0.999)) as u8);
+}
+
+// f64::clamp is... not a thing, and who knows when it will be :(
+// https://github.com/rust-lang/rust/issues/44095
+fn clamp(x: f64, min: f64, max: f64) -> f64 {
+    x.min(max).max(min)
 }

@@ -1,3 +1,4 @@
+use rand::Rng;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -106,6 +107,25 @@ impl Neg for Vec3 {
 impl Vec3 {
     pub const ZERO: Self = Vec3(0.0, 0.0, 0.0);
     pub const ONE: Self = Vec3(1.0, 1.0, 1.0);
+
+    pub fn random_in_unit_sphere() -> Self {
+        let mut rng = rand::thread_rng();
+        loop {
+            let v = Vec3(rng.gen(), rng.gen(), rng.gen());
+            if v.mag_squared() >= 1.0 {
+                continue;
+            }
+            return v;
+        }
+    }
+
+    pub fn random_unit_vector() -> Self {
+        let mut rng = rand::thread_rng();
+        let a: f64 = rng.gen::<f64>() * std::f64::consts::PI * 2.0; // TODO: TAU when stable
+        let z = rng.gen::<f64>() * 2.0 - 1.0;
+        let r = (1.0 - z * z).sqrt();
+        Vec3(r * a.cos(), r * a.sin(), z)
+    }
 
     pub fn mag(self) -> f64 {
         self.mag_squared().sqrt()
