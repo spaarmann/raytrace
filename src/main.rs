@@ -13,7 +13,7 @@ mod vec3;
 
 use camera::Camera;
 use hit::{Hit, Hittable, HittableList, Sphere};
-use material::{Lambertian, Material, Metal};
+use material::{Dielectric, Lambertian, Material, Metal};
 use ray::Ray;
 use vec3::Vec3;
 
@@ -73,9 +73,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         albedo: Vec3(0.5, 0.5, 0.5),
         fuzz: 0.3,
     };
-    let m_sphere_right = Metal {
-        albedo: Vec3(0.5, 0.5, 0.5),
-        fuzz: 0.9,
+    let m_sphere_right = Dielectric {
+        refraction_index: 1.5,
     };
 
     let ground = Sphere {
@@ -96,7 +95,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
     let sphere_right = Sphere {
         center: Vec3(1.0, 0.0, -1.0),
-        radius: 0.5,
+        radius: -0.5,
         material: &m_sphere_right,
     };
 

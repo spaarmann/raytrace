@@ -1,6 +1,7 @@
 use crate::Hit;
 use crate::Ray;
 use crate::Vec3;
+use rand::Rng;
 
 pub trait Material {
     fn scatter(&self, ray_in: &Ray, hit: &Hit) -> Option<(Vec3, Ray)>;
@@ -32,5 +33,50 @@ impl Material for Metal {
         } else {
             None
         }
+    }
+}
+
+pub struct Dielectric {
+    pub refraction_index: f64,
+}
+
+impl Material for Dielectric {
+    fn scatter(&self, ray_in: &Ray, hit: &Hit) -> Option<(Vec3, Ray)> {
+        let etai_over_etat = if hit.front_face {
+            1.0 / self.refraction_index
+        } else {
+            self.refraction_index
+        };
+
+        let normalized_direction = ray_in.direction.normalized();
+        let cos_theta = (-normalized_direction).dot(hit.normal).min(1.0);
+        let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
+
+        if etai_over_etat * sin_theta > 1.0 {
+            return Some((
+                Vec3::ONE,
+                Ray::new(hit.point, normalized_direction.reflect(hit.normal)),
+            ));
+        }
+
+        let mut rng = rand::thread_rng();
+        let reflect_prob = self.schlick(cos_theta);
+        if rng.gen::<f64>() < reflect_prob {
+            return Some((
+                Vec3::ONE,
+                Ray::new(hit.point, normalized_direction.reflect(hit.normal)),
+            ));
+        }
+
+        let refracted = normalized_direction.refract(hit.normal, etai_over_etat);
+        Some((Vec3::ONE, Ray::new(hit.point, refracted)))
+    }
+}
+
+impl Dielectric {
+    fn schlick(&self, cosine: f64) -> f64 {
+        let r0 = (1.0 - self.refraction_index) / (1.0 + self.refraction_index);
+        let r0 = r0 * r0;
+        r0 + (1.0 - r0) * (1.0 - cosine).powi(5)
     }
 }
