@@ -18,7 +18,7 @@ use ray::Ray;
 use vec3::Vec3;
 
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
-const IMAGE_WIDTH: u32 = 400;
+const IMAGE_WIDTH: u32 = 800;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as u32;
 const SAMPLES: u32 = 100;
 const MAX_DEPTH: i32 = 50;
@@ -43,33 +43,8 @@ fn ray_color(ray: Ray, scene: &dyn Hittable, depth: i32) -> Vec3 {
     }
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    // Output file
-    let args: Vec<String> = env::args().collect();
-    let path = Path::new(&args[1]);
-    let file = BufWriter::new(File::create(&path).unwrap());
-    let mut encoder = png::Encoder::new(file, IMAGE_WIDTH, IMAGE_HEIGHT);
-    encoder.set_color(png::ColorType::RGB);
-    encoder.set_depth(png::BitDepth::Eight);
-    let mut writer = encoder.write_header()?;
-
-    let mut pixels = Vec::<u8>::with_capacity((IMAGE_WIDTH * IMAGE_HEIGHT * 4) as usize);
-
-    let mut rng = rand::thread_rng();
-
-    // Camera
-    let camera = Camera::new(
-        Vec3(0.0, 1.5, -2.0),
-        Vec3(0.0, 1.0, 0.3),
-        Vec3(0.0, 0.0, 1.0),
-        90.0,
-        ASPECT_RATIO,
-        0.1,
-        5.0,
-    );
-
-    // Scene
-
+#[allow(dead_code)]
+fn test_scene() -> (HittableList, Camera) {
     let ground = Sphere {
         center: Vec3(0.0, -100.5, 1.0),
         radius: 100.0,
@@ -109,6 +84,115 @@ fn main() -> Result<(), Box<dyn Error>> {
             Box::new(sphere_right),
         ],
     };
+
+    let camera = Camera::new(
+        Vec3(0.0, 1.5, -2.0),
+        Vec3(0.0, 1.0, 0.3),
+        Vec3(0.0, 0.0, 1.0),
+        90.0,
+        ASPECT_RATIO,
+        0.1,
+        5.0,
+    );
+
+    (scene, camera)
+}
+
+#[allow(dead_code)]
+fn random_scene() -> (HittableList, Camera) {
+    let mut rng = rand::thread_rng();
+
+    let mut objects: Vec<Box<dyn Hittable>> = Vec::new();
+
+    // Ground
+    objects.push(Box::new(Sphere {
+        center: Vec3(0.0, -1000.0, 0.0),
+        radius: 1000.0,
+        material: Box::new(Lambertian {
+            albedo: Vec3(0.5, 0.5, 0.5),
+        }),
+    }));
+
+    for a in -11..=11 {
+        for b in -11..=11 {
+            let center = Vec3(
+                a as f64 + 0.9 * rng.gen::<f64>(),
+                0.2,
+                b as f64 + 0.9 * rng.gen::<f64>(),
+            );
+            let random_mat = rng.gen::<f64>();
+
+            if random_mat < 0.8 {
+                // diffuse
+                let albedo = Vec3(rng.gen(), rng.gen(), rng.gen());
+                objects.push(Box::new(Sphere {
+                    center,
+                    radius: 0.2,
+                    material: Box::new(Lambertian {
+                        albedo: albedo * albedo,
+                    }),
+                }));
+            } else if random_mat < 0.95 {
+                // metal
+                let albedo = Vec3(
+                    rng.gen::<f64>() * 0.5 + 0.5,
+                    rng.gen::<f64>() * 0.5 + 0.5,
+                    rng.gen::<f64>() * 0.5 + 0.5,
+                );
+                let fuzz = rng.gen::<f64>() * 0.5;
+                objects.push(Box::new(Sphere {
+                    center,
+                    radius: 0.2,
+                    material: Box::new(Metal { albedo, fuzz }),
+                }));
+            } else {
+                // glass
+                objects.push(Box::new(Sphere {
+                    center,
+                    radius: 0.2,
+                    material: Box::new(Dielectric {
+                        refraction_index: 1.5,
+                    }),
+                }));
+            }
+        }
+    }
+
+    let forward = Vec3(0.0, -0.2, 1.0).normalized();
+    let up = forward.cross(Vec3(1.0, 0.0, 0.0));
+
+    //let up = Vec3(0.0, 1.0, 0.7);
+    let camera = Camera::new(
+        Vec3(0.0, 1.0, -5.0),
+        up,
+        //Vec3(1.0, 0.0, 0.0).cross(up),
+        forward,
+        30.0,
+        ASPECT_RATIO,
+        0.1,
+        4.0,
+    );
+
+    let scene = HittableList { hittables: objects };
+
+    (scene, camera)
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let mut rng = rand::thread_rng();
+
+    // Output file
+    let args: Vec<String> = env::args().collect();
+    let path = Path::new(&args[1]);
+    let file = BufWriter::new(File::create(&path).unwrap());
+    let mut encoder = png::Encoder::new(file, IMAGE_WIDTH, IMAGE_HEIGHT);
+    encoder.set_color(png::ColorType::RGB);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut writer = encoder.write_header()?;
+
+    let mut pixels = Vec::<u8>::with_capacity((IMAGE_WIDTH * IMAGE_HEIGHT * 4) as usize);
+
+    let (scene, camera) = random_scene();
 
     for j in (0..IMAGE_HEIGHT).rev() {
         println!("Scanline {}/{}", IMAGE_HEIGHT - j, IMAGE_HEIGHT);
