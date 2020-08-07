@@ -38,13 +38,13 @@ pub trait Hittable {
     fn hit(&self, ray: Ray, t_range: Range<f64>) -> Option<Hit>;
 }
 
-pub struct Sphere<'a> {
+pub struct Sphere {
     pub center: Vec3,
     pub radius: f64,
-    pub material: &'a dyn Material,
+    pub material: Box<dyn Material>,
 }
 
-impl<'a> Hittable for Sphere<'a> {
+impl Hittable for Sphere {
     fn hit(&self, ray: Ray, t_range: Range<f64>) -> Option<Hit> {
         let oc = ray.origin - self.center;
         let a = ray.direction.mag_squared();
@@ -63,7 +63,7 @@ impl<'a> Hittable for Sphere<'a> {
                     (point - self.center) / self.radius,
                     t,
                     ray.direction,
-                    self.material,
+                    self.material.as_ref(),
                 ));
             }
 
@@ -75,7 +75,7 @@ impl<'a> Hittable for Sphere<'a> {
                     (point - self.center) / self.radius,
                     t,
                     ray.direction,
-                    self.material,
+                    self.material.as_ref(),
                 ));
             }
         }
@@ -84,11 +84,11 @@ impl<'a> Hittable for Sphere<'a> {
     }
 }
 
-pub struct HittableList<'a> {
-    pub hittables: Vec<&'a dyn Hittable>,
+pub struct HittableList {
+    pub hittables: Vec<Box<dyn Hittable>>,
 }
 
-impl<'a> Hittable for HittableList<'a> {
+impl Hittable for HittableList {
     fn hit(&self, ray: Ray, mut t_range: Range<f64>) -> Option<Hit> {
         let mut current_hit = None;
 

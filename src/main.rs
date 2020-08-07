@@ -70,45 +70,44 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Scene
 
-    let m_ground = Lambertian {
-        albedo: Vec3(0.3, 0.8, 0.3),
-    };
-
-    let m_sphere_left = Lambertian {
-        albedo: Vec3(0.7, 0.1, 0.1),
-    };
-    let m_sphere_middle = Metal {
-        albedo: Vec3(0.5, 0.5, 0.5),
-        fuzz: 0.3,
-    };
-    let m_sphere_right = Dielectric {
-        refraction_index: 1.5,
-    };
-
     let ground = Sphere {
         center: Vec3(0.0, -100.5, 1.0),
         radius: 100.0,
-        material: &m_ground,
+        material: Box::new(Lambertian {
+            albedo: Vec3(0.3, 0.8, 0.3),
+        }),
     };
 
     let sphere_left = Sphere {
         center: Vec3(-1.0, 0.0, 1.0),
         radius: 0.5,
-        material: &m_sphere_left,
+        material: Box::new(Lambertian {
+            albedo: Vec3(0.7, 0.1, 0.1),
+        }),
     };
     let sphere_middle = Sphere {
         center: Vec3(0.0, 0.0, 2.0),
         radius: 0.5,
-        material: &m_sphere_middle,
+        material: Box::new(Metal {
+            albedo: Vec3(0.5, 0.5, 0.5),
+            fuzz: 0.3,
+        }),
     };
     let sphere_right = Sphere {
         center: Vec3(1.0, 0.0, 1.0),
         radius: -0.5,
-        material: &m_sphere_right,
+        material: Box::new(Dielectric {
+            refraction_index: 1.5,
+        }),
     };
 
     let scene = HittableList {
-        hittables: vec![&ground, &sphere_left, &sphere_middle, &sphere_right],
+        hittables: vec![
+            Box::new(ground),
+            Box::new(sphere_left),
+            Box::new(sphere_middle),
+            Box::new(sphere_right),
+        ],
     };
 
     for j in (0..IMAGE_HEIGHT).rev() {
