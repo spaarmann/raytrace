@@ -13,7 +13,7 @@ mod vec3;
 
 use camera::Camera;
 use hit::{Hit, Hittable, HittableList, Sphere};
-use material::{Lambertian, Material};
+use material::{Lambertian, Material, Metal};
 use ray::Ray;
 use vec3::Vec3;
 
@@ -60,23 +60,48 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Camera
     let camera = Camera::new(ASPECT_RATIO, 2.0, 1.0, Vec3::ZERO);
 
-    let mat = Lambertian {
-        albedo: Vec3(0.5, 0.5, 0.6),
+    // Scene
+
+    let m_ground = Lambertian {
+        albedo: Vec3(0.3, 0.8, 0.3),
     };
 
-    // Scene
-    let s1 = Sphere {
-        center: Vec3(0.0, 0.0, -1.0),
-        radius: 0.5,
-        material: &mat,
+    let m_sphere_left = Lambertian {
+        albedo: Vec3(0.7, 0.1, 0.1),
     };
-    let s2 = Sphere {
+    let m_sphere_middle = Metal {
+        albedo: Vec3(0.5, 0.5, 0.5),
+        fuzz: 0.3,
+    };
+    let m_sphere_right = Metal {
+        albedo: Vec3(0.5, 0.5, 0.5),
+        fuzz: 0.9,
+    };
+
+    let ground = Sphere {
         center: Vec3(0.0, -100.5, -1.0),
         radius: 100.0,
-        material: &mat,
+        material: &m_ground,
     };
+
+    let sphere_left = Sphere {
+        center: Vec3(-1.0, 0.0, -1.0),
+        radius: 0.5,
+        material: &m_sphere_left,
+    };
+    let sphere_middle = Sphere {
+        center: Vec3(0.0, 0.0, -2.0),
+        radius: 0.5,
+        material: &m_sphere_middle,
+    };
+    let sphere_right = Sphere {
+        center: Vec3(1.0, 0.0, -1.0),
+        radius: 0.5,
+        material: &m_sphere_right,
+    };
+
     let scene = HittableList {
-        hittables: vec![&s1, &s2],
+        hittables: vec![&ground, &sphere_left, &sphere_middle, &sphere_right],
     };
 
     for j in (0..IMAGE_HEIGHT).rev() {

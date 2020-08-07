@@ -150,4 +150,8 @@ impl Vec3 {
     pub fn normalized(self) -> Self {
         self / self.mag()
     }
+
+    pub fn reflect(self, normal: Self) -> Self {
+        self - 2.0 * self.dot(normal) * normal
+    }
 }
