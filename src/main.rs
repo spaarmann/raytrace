@@ -64,7 +64,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         Vec3(0.0, 0.0, 1.0),
         90.0,
         ASPECT_RATIO,
-        1.0,
+        0.1,
+        5.0,
     );
 
     // Scene

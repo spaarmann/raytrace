@@ -119,11 +119,28 @@ impl Vec3 {
     pub fn random_in_unit_sphere() -> Self {
         let mut rng = rand::thread_rng();
         loop {
-            let v = Vec3(rng.gen(), rng.gen(), rng.gen());
-            if v.mag_squared() >= 1.0 {
-                continue;
+            let v = Vec3(
+                rng.gen::<f64>() * 2.0 - 1.0,
+                rng.gen::<f64>() * 2.0 - 1.0,
+                rng.gen::<f64>() * 2.0 - 1.0,
+            );
+            if v.mag_squared() <= 1.0 {
+                break v;
             }
-            return v;
+        }
+    }
+
+    pub fn random_in_unit_disk() -> Self {
+        let mut rng = rand::thread_rng();
+        loop {
+            let v = Vec3(
+                rng.gen::<f64>() * 2.0 - 1.0,
+                rng.gen::<f64>() * 2.0 - 1.0,
+                0.0,
+            );
+            if v.mag_squared() <= 1.0 {
+                break v;
+            }
         }
     }
 
@@ -151,9 +168,9 @@ impl Vec3 {
         Vec3(
             self.1 * rhs.2 - self.2 * rhs.1,
             self.2 * rhs.0 - self.0 * rhs.2,
-            self.0 * rhs.1 - self.1 * rhs.0
+            self.0 * rhs.1 - self.1 * rhs.0,
         )
-    } 
+    }
 
     pub fn normalized(self) -> Self {
         self / self.mag()
