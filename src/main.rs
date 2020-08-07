@@ -58,7 +58,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut rng = rand::thread_rng();
 
     // Camera
-    let camera = Camera::new(ASPECT_RATIO, 2.0, 1.0, Vec3::ZERO);
+    let camera = Camera::new(
+        Vec3(0.0, 1.5, -2.0),
+        Vec3(0.0, 1.0, 0.3),
+        Vec3(0.0, 0.0, 1.0),
+        90.0,
+        ASPECT_RATIO,
+        1.0,
+    );
 
     // Scene
 
@@ -78,23 +85,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let ground = Sphere {
-        center: Vec3(0.0, -100.5, -1.0),
+        center: Vec3(0.0, -100.5, 1.0),
         radius: 100.0,
         material: &m_ground,
     };
 
     let sphere_left = Sphere {
-        center: Vec3(-1.0, 0.0, -1.0),
+        center: Vec3(-1.0, 0.0, 1.0),
         radius: 0.5,
         material: &m_sphere_left,
     };
     let sphere_middle = Sphere {
-        center: Vec3(0.0, 0.0, -2.0),
+        center: Vec3(0.0, 0.0, 2.0),
         radius: 0.5,
         material: &m_sphere_middle,
     };
     let sphere_right = Sphere {
-        center: Vec3(1.0, 0.0, -1.0),
+        center: Vec3(1.0, 0.0, 1.0),
         radius: -0.5,
         material: &m_sphere_right,
     };
