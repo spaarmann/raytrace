@@ -18,9 +18,9 @@ use ray::Ray;
 use vec3::Vec3;
 
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
-const IMAGE_WIDTH: u32 = 800;
+const IMAGE_WIDTH: u32 = 400;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as u32;
-const SAMPLES: u32 = 100;
+const SAMPLES: u32 = 20;
 const MAX_DEPTH: i32 = 50;
 
 fn ray_color(ray: Ray, scene: &dyn Hittable, depth: i32) -> Vec3 {
@@ -190,13 +190,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     encoder.set_depth(png::BitDepth::Eight);
     let mut writer = encoder.write_header()?;
 
-    let mut pixels = Vec::<u8>::with_capacity((IMAGE_WIDTH * IMAGE_HEIGHT * 4) as usize);
+    let mut pixels = [0u8; (IMAGE_WIDTH * IMAGE_HEIGHT * 3) as usize];
 
     let (scene, camera) = random_scene();
 
-    for j in (0..IMAGE_HEIGHT).rev() {
-        println!("Scanline {}/{}", IMAGE_HEIGHT - j, IMAGE_HEIGHT);
+    for j in 0..IMAGE_HEIGHT {
+        println!("Scanline {}/{}", j + 1, IMAGE_HEIGHT);
         for i in 0..IMAGE_WIDTH {
+            let index = (i + (IMAGE_HEIGHT - j - 1) * IMAGE_WIDTH) * 3;
             let mut pixel_color = Vec3::ZERO;
             for _ in 0..SAMPLES {
                 let u = (f64::from(i) + rng.gen::<f64>()) / f64::from(IMAGE_WIDTH - 1);
@@ -206,7 +207,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 pixel_color += ray_color(ray, &scene, MAX_DEPTH);
             }
 
-            write_color(&mut pixels, pixel_color / (SAMPLES as f64));
+            write_color(&mut pixels, index as usize, pixel_color / (SAMPLES as f64));
         }
     }
 
@@ -216,12 +217,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn write_color(pixels: &mut Vec<u8>, color: Vec3) {
+fn write_color(pixels: &mut [u8], index: usize, color: Vec3) {
     // This would be the place to do gamma correction,
     // but currently the gamma factor is encoded as PNG metadata instead.
-    pixels.push((256.0 * clamp(color.0, 0.0, 0.999)) as u8);
-    pixels.push((256.0 * clamp(color.1, 0.0, 0.999)) as u8);
-    pixels.push((256.0 * clamp(color.2, 0.0, 0.999)) as u8);
+    pixels[index] = (256.0 * clamp(color.0, 0.0, 0.999)) as u8;
+    pixels[index + 1] = (256.0 * clamp(color.1, 0.0, 0.999)) as u8;
+    pixels[index + 2] = (256.0 * clamp(color.2, 0.0, 0.999)) as u8;
 }
 
 // f64::clamp is... not a thing, and who knows when it will be :(
