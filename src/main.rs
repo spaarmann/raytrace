@@ -18,11 +18,11 @@ use ray::Ray;
 use vec3::Vec3;
 
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
-const IMAGE_WIDTH: u32 = 1920;
+const IMAGE_WIDTH: u32 = 480;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as u32;
 const MAX_DEPTH: i32 = 50;
 
-const THREAD_COUNT: u32 = 10;
+const THREAD_COUNT: u32 = 1;
 const SAMPLES_PER_THREAD: u32 = 10;
 
 fn ray_color(ray: Ray, scene: &dyn Hittable, depth: i32) -> Vec3 {
@@ -215,31 +215,33 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let (scene, camera) = random_scene();
 
-    let png_pixels = crossbeam_utils::thread::scope(|s| {
-        // Start THREAD_COUNT threads, each rendering the scene.
-        let mut thread_results = Vec::with_capacity(THREAD_COUNT as usize);
-        for _ in 0..THREAD_COUNT {
-            thread_results.push(s.spawn(|_| render(&scene, &camera)));
-        }
-
-        // Accumulate all the results into one buffer.
-        // (We re-use the buffer of one of the threads, just to avoid allocating another one.)
-        let mut result_pixels = thread_results.pop().unwrap().join().unwrap();
-        for thread_pixels in thread_results.into_iter() {
-            let thread_pixels = thread_pixels.join().unwrap();
-            for i in 0..thread_pixels.len() {
-                result_pixels[i] += thread_pixels[i];
+    let png_pixels = (if THREAD_COUNT == 1 {
+        render(&scene, &camera).into_iter()
+    } else {
+        crossbeam_utils::thread::scope(|s| {
+            // Start THREAD_COUNT threads, each rendering the scene.
+            let mut thread_results = Vec::with_capacity(THREAD_COUNT as usize);
+            for _ in 0..THREAD_COUNT {
+                thread_results.push(s.spawn(|_| render(&scene, &camera)));
             }
-        }
 
-        // Divide the accumulated colors by the amount of samples, and convert to 0-255 u8 color values.
-        result_pixels
-            .into_iter()
-            .flat_map(|c| c / ((SAMPLES_PER_THREAD * THREAD_COUNT) as f64))
-            .map(|c| (255.0 * (clamp(c, 0.0, 0.999))) as u8)
-            .collect::<Vec<_>>()
+            // Accumulate all the results into one buffer.
+            // (We re-use the buffer of one of the threads, just to avoid allocating another one.)
+            let mut result_pixels = thread_results.pop().unwrap().join().unwrap();
+            for thread_pixels in thread_results.into_iter() {
+                let thread_pixels = thread_pixels.join().unwrap();
+                for i in 0..thread_pixels.len() {
+                    result_pixels[i] += thread_pixels[i];
+                }
+            }
+            result_pixels.into_iter()
+        })
+        .unwrap()
     })
-    .unwrap();
+    // Divide the accumulated colors by the amount of samples, and convert to 0-255 u8 color values.
+    .flat_map(|c| c / ((THREAD_COUNT * SAMPLES_PER_THREAD) as f64))
+    .map(|c| (255.0 * (clamp(c, 0.0, 0.999))) as u8)
+    .collect::<Vec<_>>();
 
     writer.write_image_data(&png_pixels)?;
 
