@@ -41,7 +41,7 @@ pub trait Hittable {
 pub struct Sphere {
     pub center: Vec3,
     pub radius: f64,
-    pub material: Box<dyn Material>,
+    pub material: Box<dyn Material + Sync>,
 }
 
 impl Hittable for Sphere {
@@ -85,7 +85,7 @@ impl Hittable for Sphere {
 }
 
 pub struct HittableList {
-    pub hittables: Vec<Box<dyn Hittable>>,
+    pub hittables: Vec<Box<dyn Hittable + Sync>>,
 }
 
 impl Hittable for HittableList {

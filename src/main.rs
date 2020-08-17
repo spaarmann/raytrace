@@ -18,10 +18,12 @@ use ray::Ray;
 use vec3::Vec3;
 
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
-const IMAGE_WIDTH: u32 = 400;
+const IMAGE_WIDTH: u32 = 1920;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as u32;
-const SAMPLES: u32 = 20;
 const MAX_DEPTH: i32 = 50;
+
+const THREAD_COUNT: u32 = 10;
+const SAMPLES_PER_THREAD: u32 = 10;
 
 fn ray_color(ray: Ray, scene: &dyn Hittable, depth: i32) -> Vec3 {
     if depth <= 0 {
@@ -102,7 +104,7 @@ fn test_scene() -> (HittableList, Camera) {
 fn random_scene() -> (HittableList, Camera) {
     let mut rng = rand::thread_rng();
 
-    let mut objects: Vec<Box<dyn Hittable>> = Vec::new();
+    let mut objects: Vec<Box<dyn Hittable + Sync>> = Vec::new();
 
     // Ground
     objects.push(Box::new(Sphere {
@@ -122,7 +124,7 @@ fn random_scene() -> (HittableList, Camera) {
             );
             let random_mat = rng.gen::<f64>();
 
-            if random_mat < 0.8 {
+            if random_mat < 0.75 {
                 // diffuse
                 let albedo = Vec3(rng.gen(), rng.gen(), rng.gen());
                 objects.push(Box::new(Sphere {
@@ -132,7 +134,7 @@ fn random_scene() -> (HittableList, Camera) {
                         albedo: albedo * albedo,
                     }),
                 }));
-            } else if random_mat < 0.95 {
+            } else if random_mat < 0.9 {
                 // metal
                 let albedo = Vec3(
                     rng.gen::<f64>() * 0.5 + 0.5,
@@ -169,7 +171,7 @@ fn random_scene() -> (HittableList, Camera) {
         forward,
         30.0,
         ASPECT_RATIO,
-        0.1,
+        0.05,
         4.0,
     );
 
@@ -178,9 +180,30 @@ fn random_scene() -> (HittableList, Camera) {
     (scene, camera)
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn render(scene: &dyn Hittable, camera: &Camera) -> Vec<Vec3> {
     let mut rng = rand::thread_rng();
+    let mut pixels = Vec::with_capacity((IMAGE_WIDTH * IMAGE_HEIGHT) as usize);
 
+    for j in (0..IMAGE_HEIGHT).rev() {
+        println!("Scanline {}/{}", IMAGE_HEIGHT - j, IMAGE_HEIGHT);
+        for i in 0..IMAGE_WIDTH {
+            let mut pixel_color = Vec3::ZERO;
+            for _ in 0..SAMPLES_PER_THREAD {
+                let u = (f64::from(i) + rng.gen::<f64>()) / f64::from(IMAGE_WIDTH - 1);
+                let v = (f64::from(j) + rng.gen::<f64>()) / f64::from(IMAGE_HEIGHT - 1);
+
+                let ray = camera.get_ray(u, v);
+                pixel_color += ray_color(ray, scene, MAX_DEPTH);
+            }
+
+            pixels.push(pixel_color);
+        }
+    }
+
+    pixels
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
     // Output file
     let args: Vec<String> = env::args().collect();
     let path = Path::new(&args[1]);
@@ -190,39 +213,38 @@ fn main() -> Result<(), Box<dyn Error>> {
     encoder.set_depth(png::BitDepth::Eight);
     let mut writer = encoder.write_header()?;
 
-    let mut pixels = [0u8; (IMAGE_WIDTH * IMAGE_HEIGHT * 3) as usize];
-
     let (scene, camera) = random_scene();
 
-    for j in 0..IMAGE_HEIGHT {
-        println!("Scanline {}/{}", j + 1, IMAGE_HEIGHT);
-        for i in 0..IMAGE_WIDTH {
-            let index = (i + (IMAGE_HEIGHT - j - 1) * IMAGE_WIDTH) * 3;
-            let mut pixel_color = Vec3::ZERO;
-            for _ in 0..SAMPLES {
-                let u = (f64::from(i) + rng.gen::<f64>()) / f64::from(IMAGE_WIDTH - 1);
-                let v = (f64::from(j) + rng.gen::<f64>()) / f64::from(IMAGE_HEIGHT - 1);
-
-                let ray = camera.get_ray(u, v);
-                pixel_color += ray_color(ray, &scene, MAX_DEPTH);
-            }
-
-            write_color(&mut pixels, index as usize, pixel_color / (SAMPLES as f64));
+    let png_pixels = crossbeam_utils::thread::scope(|s| {
+        // Start THREAD_COUNT threads, each rendering the scene.
+        let mut thread_results = Vec::with_capacity(THREAD_COUNT as usize);
+        for _ in 0..THREAD_COUNT {
+            thread_results.push(s.spawn(|_| render(&scene, &camera)));
         }
-    }
 
-    writer.write_image_data(&pixels)?;
+        // Accumulate all the results into one buffer.
+        // (We re-use the buffer of one of the threads, just to avoid allocating another one.)
+        let mut result_pixels = thread_results.pop().unwrap().join().unwrap();
+        for thread_pixels in thread_results.into_iter() {
+            let thread_pixels = thread_pixels.join().unwrap();
+            for i in 0..thread_pixels.len() {
+                result_pixels[i] += thread_pixels[i];
+            }
+        }
+
+        // Divide the accumulated colors by the amount of samples, and convert to 0-255 u8 color values.
+        result_pixels
+            .into_iter()
+            .flat_map(|c| c / ((SAMPLES_PER_THREAD * THREAD_COUNT) as f64))
+            .map(|c| (255.0 * (clamp(c, 0.0, 0.999))) as u8)
+            .collect::<Vec<_>>()
+    })
+    .unwrap();
+
+    writer.write_image_data(&png_pixels)?;
 
     println!("Done.");
     Ok(())
-}
-
-fn write_color(pixels: &mut [u8], index: usize, color: Vec3) {
-    // This would be the place to do gamma correction,
-    // but currently the gamma factor is encoded as PNG metadata instead.
-    pixels[index] = (256.0 * clamp(color.0, 0.0, 0.999)) as u8;
-    pixels[index + 1] = (256.0 * clamp(color.1, 0.0, 0.999)) as u8;
-    pixels[index + 2] = (256.0 * clamp(color.2, 0.0, 0.999)) as u8;
 }
 
 // f64::clamp is... not a thing, and who knows when it will be :(

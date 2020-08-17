@@ -187,3 +187,57 @@ impl Vec3 {
         r_out_perpendicular + r_out_parallel
     }
 }
+
+pub struct Vec3Iterator<'a> {
+    v: &'a Vec3,
+    index: u8,
+}
+
+impl<'a> Iterator for Vec3Iterator<'a> {
+    type Item = f64;
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = match self.index {
+            0 => self.v.0,
+            1 => self.v.1,
+            2 => self.v.2,
+            _ => return None,
+        };
+        self.index += 1;
+        Some(result)
+    }
+}
+
+impl<'a> IntoIterator for &'a Vec3 {
+    type Item = f64;
+    type IntoIter = Vec3Iterator<'a>;
+    fn into_iter(self) -> Self::IntoIter {
+        Vec3Iterator { v: self, index: 0 }
+    }
+}
+
+pub struct Vec3IntoIterator {
+    v: Vec3,
+    index: u8,
+}
+
+impl Iterator for Vec3IntoIterator {
+    type Item = f64;
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = match self.index {
+            0 => self.v.0,
+            1 => self.v.1,
+            2 => self.v.2,
+            _ => return None,
+        };
+        self.index += 1;
+        Some(result)
+    }
+}
+
+impl IntoIterator for Vec3 {
+    type Item = f64;
+    type IntoIter = Vec3IntoIterator;
+    fn into_iter(self) -> Self::IntoIter {
+        Vec3IntoIterator { v: self, index: 0 }
+    }
+}
