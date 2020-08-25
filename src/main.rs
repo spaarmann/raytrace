@@ -1,9 +1,9 @@
 use rand::Rng;
-use std::env;
 use std::error::Error;
 use std::fs::File;
-use std::io::BufWriter;
-use std::path::Path;
+use std::io::{BufWriter, Write};
+use std::path::PathBuf;
+use structopt::StructOpt;
 
 use raytrace::*;
 
@@ -16,7 +16,7 @@ const THREAD_COUNT: u32 = 1;
 const SAMPLES_PER_PIXEL: u32 = 10;
 
 #[allow(dead_code)]
-fn test_scene() -> (HittableList, Camera) {
+fn test_scene() -> (Box<dyn Hittable>, Camera) {
     let ground = Sphere {
         center: Vec3(0.0, -100.5, 1.0),
         radius: 100.0,
@@ -48,14 +48,14 @@ fn test_scene() -> (HittableList, Camera) {
         }),
     };
 
-    let scene = HittableList {
+    let scene = Box::new(HittableList {
         hittables: vec![
             Box::new(ground),
             Box::new(sphere_left),
             Box::new(sphere_middle),
             Box::new(sphere_right),
         ],
-    };
+    });
 
     let camera = Camera::new(
         Vec3(0.0, 1.5, -2.0),
@@ -71,7 +71,7 @@ fn test_scene() -> (HittableList, Camera) {
 }
 
 #[allow(dead_code)]
-fn random_scene() -> (HittableList, Camera) {
+fn random_scene() -> (Box<dyn Hittable>, Camera) {
     let mut rng = rand::thread_rng();
 
     let mut objects: Vec<Box<dyn Hittable>> = Vec::new();
@@ -145,24 +145,54 @@ fn random_scene() -> (HittableList, Camera) {
         4.0,
     );
 
-    let scene = HittableList { hittables: objects };
+    let scene = Box::new(HittableList { hittables: objects });
 
     (scene, camera)
 }
 
+#[derive(Debug, StructOpt)]
+#[structopt(name = "raytrace")]
+struct Opt {
+    #[structopt(long = "save-scene", parse(from_os_str))]
+    save_scene: Option<PathBuf>,
+
+    #[structopt(long = "load-scene", parse(from_os_str))]
+    load_scene: Option<PathBuf>,
+
+    #[structopt(name = "FILE", parse(from_os_str))]
+    output_file: PathBuf,
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     // Output file
-    let args: Vec<String> = env::args().collect();
-    let path = Path::new(&args[1]);
-    let file = BufWriter::new(File::create(&path).unwrap());
+    let opt = Opt::from_args();
+
+    let file = BufWriter::new(File::create(&opt.output_file).unwrap());
     let mut encoder = png::Encoder::new(file, IMAGE_WIDTH, IMAGE_HEIGHT);
     encoder.set_color(png::ColorType::RGB);
     encoder.set_depth(png::BitDepth::Eight);
     let mut writer = encoder.write_header()?;
 
-    let (scene, camera) = random_scene();
+    let (scene, camera) = match opt.load_scene {
+        Some(path) => {
+            let file_content = std::fs::read_to_string(path)?;
+            deserialize_scene(&file_content)?
+        }
+        None => random_scene(),
+    };
+
+    if let Some(path) = opt.save_scene {
+        let mut scene_file = BufWriter::new(File::create(&path).unwrap());
+        scene_file.write_all(
+            &serialize_scene(scene.as_ref(), &camera)
+                .unwrap()
+                .into_bytes(),
+        )?;
+        scene_file.flush()?;
+    }
+
     let png_pixels = render(
-        &scene,
+        scene.as_ref(),
         &camera,
         IMAGE_WIDTH,
         IMAGE_HEIGHT,

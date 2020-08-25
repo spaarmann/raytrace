@@ -1,6 +1,8 @@
 use crate::Ray;
 use crate::Vec3;
+use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize)]
 pub struct Camera {
     origin: Vec3,
     lower_left_corner: Vec3,

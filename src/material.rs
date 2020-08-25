@@ -2,15 +2,19 @@ use crate::Hit;
 use crate::Ray;
 use crate::Vec3;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
-pub trait Material {
+#[typetag::serde]
+pub trait Material: Sync {
     fn scatter(&self, ray_in: &Ray, hit: &Hit) -> Option<(Vec3, Ray)>;
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Lambertian {
     pub albedo: Vec3,
 }
 
+#[typetag::serde]
 impl Material for Lambertian {
     fn scatter(&self, _: &Ray, hit: &Hit) -> Option<(Vec3, Ray)> {
         let scatter_direction = hit.normal + Vec3::random_unit_vector();
@@ -19,11 +23,13 @@ impl Material for Lambertian {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Metal {
     pub albedo: Vec3,
     pub fuzz: f64,
 }
 
+#[typetag::serde]
 impl Material for Metal {
     fn scatter(&self, ray_in: &Ray, hit: &Hit) -> Option<(Vec3, Ray)> {
         let reflected = ray_in.direction.normalized().reflect(hit.normal)
@@ -36,10 +42,12 @@ impl Material for Metal {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Dielectric {
     pub refraction_index: f64,
 }
 
+#[typetag::serde]
 impl Material for Dielectric {
     fn scatter(&self, ray_in: &Ray, hit: &Hit) -> Option<(Vec3, Ray)> {
         let etai_over_etat = if hit.front_face {

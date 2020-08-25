@@ -12,6 +12,14 @@ mod material;
 mod ray;
 mod vec3;
 
+pub fn serialize_scene(scene: &dyn Hittable, camera: &Camera) -> ron::Result<String> {
+    ron::ser::to_string_pretty(&(scene, camera), ron::ser::PrettyConfig::new())
+}
+
+pub fn deserialize_scene(s: &str) -> ron::Result<(Box<dyn Hittable>, Camera)> {
+    ron::from_str(s)
+}
+
 pub fn render(
     scene: &dyn Hittable,
     camera: &Camera,

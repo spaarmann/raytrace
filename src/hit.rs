@@ -1,6 +1,7 @@
 use crate::Material;
 use crate::Ray;
 use crate::Vec3;
+use serde::{Deserialize, Serialize};
 use std::ops::Range;
 
 pub struct Hit<'a> {
@@ -34,16 +35,19 @@ impl<'a> Hit<'a> {
     }
 }
 
+#[typetag::serde]
 pub trait Hittable: Sync {
     fn hit(&self, ray: Ray, t_range: Range<f64>) -> Option<Hit>;
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Sphere {
     pub center: Vec3,
     pub radius: f64,
-    pub material: Box<dyn Material + Sync>,
+    pub material: Box<dyn Material>,
 }
 
+#[typetag::serde]
 impl Hittable for Sphere {
     fn hit(&self, ray: Ray, t_range: Range<f64>) -> Option<Hit> {
         let oc = ray.origin - self.center;
@@ -84,10 +88,12 @@ impl Hittable for Sphere {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct HittableList {
     pub hittables: Vec<Box<dyn Hittable>>,
 }
 
+#[typetag::serde]
 impl Hittable for HittableList {
     fn hit(&self, ray: Ray, mut t_range: Range<f64>) -> Option<Hit> {
         let mut current_hit = None;

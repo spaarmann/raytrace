@@ -1,7 +1,8 @@
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Vec3(pub f64, pub f64, pub f64);
 
 impl Add<Vec3> for Vec3 {
