@@ -199,6 +199,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         MAX_DEPTH,
         SAMPLES_PER_PIXEL,
         THREAD_COUNT,
+        true,
     );
 
     writer.write_image_data(&png_pixels)?;

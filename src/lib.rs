@@ -28,6 +28,7 @@ pub fn render(
     max_depth: u32,
     samples_per_pixel: u32,
     thread_count: u32,
+    show_progress: bool,
 ) -> Vec<u8> {
     (if thread_count == 1 {
         render_thread(
@@ -37,6 +38,7 @@ pub fn render(
             img_height,
             max_depth,
             samples_per_pixel,
+            show_progress,
         )
         .into_iter()
     } else {
@@ -52,6 +54,7 @@ pub fn render(
                         img_height,
                         max_depth,
                         samples_per_pixel / thread_count,
+                        show_progress,
                     )
                 }));
             }
@@ -82,12 +85,15 @@ fn render_thread(
     img_height: u32,
     max_depth: u32,
     samples_per_pixel: u32,
+    show_progress: bool,
 ) -> Vec<Vec3> {
     let mut rng = rand::thread_rng();
     let mut pixels = Vec::with_capacity((img_width * img_height) as usize);
 
     for j in (0..img_height).rev() {
-        println!("Scanline {}/{}", img_height - j, img_height);
+        if show_progress {
+            println!("Scanline {}/{}", img_height - j, img_height);
+        }
         for i in 0..img_width {
             let mut pixel_color = Vec3::ZERO;
             for _ in 0..samples_per_pixel {
