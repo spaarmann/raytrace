@@ -16,7 +16,7 @@ const THREAD_COUNT: u32 = 1;
 const SAMPLES_PER_PIXEL: u32 = 10;
 
 #[allow(dead_code)]
-fn test_scene() -> (Box<dyn Hittable>, Camera) {
+fn test_scene() -> Scene {
     let ground = Sphere {
         center: Vec3(0.0, -100.5, 1.0),
         radius: 100.0,
@@ -48,7 +48,7 @@ fn test_scene() -> (Box<dyn Hittable>, Camera) {
         }),
     };
 
-    let scene = Box::new(HittableList {
+    let root = Box::new(HittableList {
         hittables: vec![
             Box::new(ground),
             Box::new(sphere_left),
@@ -67,11 +67,11 @@ fn test_scene() -> (Box<dyn Hittable>, Camera) {
         5.0,
     );
 
-    (scene, camera)
+    Scene { root, camera }
 }
 
 #[allow(dead_code)]
-fn random_scene() -> (Box<dyn Hittable>, Camera) {
+fn random_scene() -> Scene {
     let mut rng = rand::thread_rng();
 
     let mut objects: Vec<Box<dyn Hittable>> = Vec::new();
@@ -145,9 +145,9 @@ fn random_scene() -> (Box<dyn Hittable>, Camera) {
         4.0,
     );
 
-    let scene = Box::new(HittableList { hittables: objects });
+    let root = Box::new(HittableList { hittables: objects });
 
-    (scene, camera)
+    Scene { root, camera }
 }
 
 #[derive(Debug, StructOpt)]
@@ -173,7 +173,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     encoder.set_depth(png::BitDepth::Eight);
     let mut writer = encoder.write_header()?;
 
-    let (scene, camera) = match opt.load_scene {
+    let scene = match opt.load_scene {
         Some(path) => {
             let file_content = std::fs::read_to_string(path)?;
             deserialize_scene(&file_content)?
@@ -183,24 +183,21 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if let Some(path) = opt.save_scene {
         let mut scene_file = BufWriter::new(File::create(&path).unwrap());
-        scene_file.write_all(
-            &serialize_scene(scene.as_ref(), &camera)
-                .unwrap()
-                .into_bytes(),
-        )?;
+        scene_file.write_all(&serialize_scene(&scene).unwrap().into_bytes())?;
         scene_file.flush()?;
     }
 
-    let png_pixels = render(
-        scene.as_ref(),
-        &camera,
-        IMAGE_WIDTH,
-        IMAGE_HEIGHT,
-        MAX_DEPTH,
-        SAMPLES_PER_PIXEL,
-        THREAD_COUNT,
-        true,
-    );
+    let image_settings = ImageSettings {
+        width: IMAGE_WIDTH,
+        height: IMAGE_HEIGHT,
+    };
+    let render_settings = RenderSettings {
+        samples_per_pixel: SAMPLES_PER_PIXEL,
+        max_depth: MAX_DEPTH,
+        thread_count: THREAD_COUNT,
+    };
+
+    let png_pixels = render(&scene, &image_settings, &render_settings, true);
 
     writer.write_image_data(&png_pixels)?;
 

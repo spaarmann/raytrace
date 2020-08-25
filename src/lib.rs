@@ -12,50 +12,46 @@ mod material;
 mod ray;
 mod vec3;
 
-pub fn serialize_scene(scene: &dyn Hittable, camera: &Camera) -> ron::Result<String> {
-    ron::ser::to_string_pretty(&(scene, camera), ron::ser::PrettyConfig::new())
+pub struct Scene {
+    pub root: Box<dyn Hittable>,
+    pub camera: Camera,
 }
 
-pub fn deserialize_scene(s: &str) -> ron::Result<(Box<dyn Hittable>, Camera)> {
-    ron::from_str(s)
+pub struct ImageSettings {
+    pub width: u32,
+    pub height: u32,
+}
+
+pub struct RenderSettings {
+    pub samples_per_pixel: u32,
+    pub max_depth: u32,
+    pub thread_count: u32,
+}
+
+pub fn serialize_scene(scene: &Scene) -> ron::Result<String> {
+    ron::ser::to_string_pretty(&(&scene.root, &scene.camera), ron::ser::PrettyConfig::new())
+}
+
+pub fn deserialize_scene(s: &str) -> ron::Result<Scene> {
+    let (root, camera) = ron::from_str(s)?;
+    Ok(Scene { root, camera })
 }
 
 pub fn render(
-    scene: &dyn Hittable,
-    camera: &Camera,
-    img_width: u32,
-    img_height: u32,
-    max_depth: u32,
-    samples_per_pixel: u32,
-    thread_count: u32,
+    scene: &Scene,
+    image_settings: &ImageSettings,
+    render_settings: &RenderSettings,
     show_progress: bool,
 ) -> Vec<u8> {
-    (if thread_count == 1 {
-        render_thread(
-            scene,
-            camera,
-            img_width,
-            img_height,
-            max_depth,
-            samples_per_pixel,
-            show_progress,
-        )
-        .into_iter()
+    (if render_settings.thread_count == 1 {
+        render_thread(scene, image_settings, render_settings, show_progress).into_iter()
     } else {
         crossbeam_utils::thread::scope(|s| {
             // Start THREAD_COUNT threads, each rendering the scene.
-            let mut thread_results = Vec::with_capacity(thread_count as usize);
-            for _ in 0..thread_count {
+            let mut thread_results = Vec::with_capacity(render_settings.thread_count as usize);
+            for _ in 0..render_settings.thread_count {
                 thread_results.push(s.spawn(|_| {
-                    render_thread(
-                        scene,
-                        camera,
-                        img_width,
-                        img_height,
-                        max_depth,
-                        samples_per_pixel / thread_count,
-                        show_progress,
-                    )
+                    render_thread(scene, image_settings, render_settings, show_progress)
                 }));
             }
 
@@ -73,35 +69,36 @@ pub fn render(
         .unwrap()
     })
     // Divide the accumulated colors by the amount of samples, and convert to 0-255 u8 color values.
-    .flat_map(|c| c / (samples_per_pixel as f64))
+    .flat_map(|c| c / (render_settings.samples_per_pixel as f64))
     .map(|c| (255.0 * (clamp(c, 0.0, 0.999))) as u8)
     .collect::<Vec<_>>()
 }
 
 fn render_thread(
-    scene: &dyn Hittable,
-    camera: &Camera,
-    img_width: u32,
-    img_height: u32,
-    max_depth: u32,
-    samples_per_pixel: u32,
+    scene: &Scene,
+    image_settings: &ImageSettings,
+    render_settings: &RenderSettings,
     show_progress: bool,
 ) -> Vec<Vec3> {
     let mut rng = rand::thread_rng();
-    let mut pixels = Vec::with_capacity((img_width * img_height) as usize);
+    let mut pixels = Vec::with_capacity((image_settings.width * image_settings.height) as usize);
 
-    for j in (0..img_height).rev() {
+    for j in (0..image_settings.height).rev() {
         if show_progress {
-            println!("Scanline {}/{}", img_height - j, img_height);
+            println!(
+                "Scanline {}/{}",
+                image_settings.height - j,
+                image_settings.height
+            );
         }
-        for i in 0..img_width {
+        for i in 0..image_settings.width {
             let mut pixel_color = Vec3::ZERO;
-            for _ in 0..samples_per_pixel {
-                let u = (f64::from(i) + rng.gen::<f64>()) / f64::from(img_width - 1);
-                let v = (f64::from(j) + rng.gen::<f64>()) / f64::from(img_height - 1);
+            for _ in 0..render_settings.samples_per_pixel {
+                let u = (f64::from(i) + rng.gen::<f64>()) / f64::from(image_settings.width - 1);
+                let v = (f64::from(j) + rng.gen::<f64>()) / f64::from(image_settings.height - 1);
 
-                let ray = camera.get_ray(u, v);
-                pixel_color += ray_color(ray, scene, max_depth);
+                let ray = scene.camera.get_ray(u, v);
+                pixel_color += ray_color(ray, scene.root.as_ref(), render_settings.max_depth);
             }
 
             pixels.push(pixel_color);
