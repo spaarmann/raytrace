@@ -34,7 +34,7 @@ impl<'a> Hit<'a> {
     }
 }
 
-pub trait Hittable {
+pub trait Hittable: Sync {
     fn hit(&self, ray: Ray, t_range: Range<f64>) -> Option<Hit>;
 }
 
@@ -85,7 +85,7 @@ impl Hittable for Sphere {
 }
 
 pub struct HittableList {
-    pub hittables: Vec<Box<dyn Hittable + Sync>>,
+    pub hittables: Vec<Box<dyn Hittable>>,
 }
 
 impl Hittable for HittableList {
