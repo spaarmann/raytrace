@@ -21,13 +21,15 @@ impl<'a> Hit<'a> {
         material: &'a dyn Material,
     ) -> Self {
         let front_face = ray_direction.dot(outward_normal) < 0.0;
+        let normal = if front_face {
+            outward_normal
+        } else {
+            -outward_normal
+        };
+
         Hit {
             point,
-            normal: if front_face {
-                outward_normal
-            } else {
-                -outward_normal
-            },
+            normal,
             t,
             front_face,
             material,
